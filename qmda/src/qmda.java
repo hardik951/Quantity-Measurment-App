@@ -1,59 +1,69 @@
 public class qmda {
 
-    static class Feet {
-        private final double value;
+    enum LengthUnit {
+        FEET(1.0),
+        INCH(1.0 / 12.0);
 
-        public Feet(double value) {
-            this.value = value;
+        private final double conversionFactor;
+
+        LengthUnit(double conversionFactor) {
+            this.conversionFactor = conversionFactor;
         }
 
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (obj == null || getClass() != obj.getClass()) return false;
-            Feet other = (Feet) obj;
-            return Double.compare(this.value, other.value) == 0;
+        public double toFeet(double value) {
+            return value * conversionFactor;
         }
     }
 
-    static class Inches {
+    static class QuantityLength {
         private final double value;
+        private final LengthUnit unit;
 
-        public Inches(double value) {
+        public QuantityLength(double value, String unit) {
             this.value = value;
+            this.unit = LengthUnit.valueOf(unit.toUpperCase());
         }
 
         @Override
         public boolean equals(Object obj) {
             if (this == obj) return true;
             if (obj == null || getClass() != obj.getClass()) return false;
-            Inches other = (Inches) obj;
-            return Double.compare(this.value, other.value) == 0;
+
+            QuantityLength other = (QuantityLength) obj;
+
+            double thisInFeet = this.unit.toFeet(this.value);
+            double otherInFeet = other.unit.toFeet(other.value);
+
+            return Double.compare(thisInFeet, otherInFeet) == 0;
         }
     }
 
     public static void main(String[] args) {
 
-        Feet f1 = new Feet(1.0);
-        Feet f2 = new Feet(1.0);
-        System.out.println(f1.equals(f2));
+        QuantityLength q1 = new QuantityLength(1.0, "feet");
+        QuantityLength q2 = new QuantityLength(1.0, "feet");
+        System.out.println(q1.equals(q2));
 
-        Feet f3 = new Feet(1.0);
-        Feet f4 = new Feet(2.0);
-        System.out.println(f3.equals(f4));
+        QuantityLength q3 = new QuantityLength(1.0, "inch");
+        QuantityLength q4 = new QuantityLength(1.0, "inch");
+        System.out.println(q3.equals(q4));
 
-        Inches i1 = new Inches(1.0);
-        Inches i2 = new Inches(1.0);
-        System.out.println(i1.equals(i2));
+        QuantityLength q5 = new QuantityLength(12.0, "inch");
+        QuantityLength q6 = new QuantityLength(1.0, "feet");
+        System.out.println(q5.equals(q6));
 
-        Inches i3 = new Inches(1.0);
-        Inches i4 = new Inches(2.0);
-        System.out.println(i3.equals(i4));
+        QuantityLength q7 = new QuantityLength(1.0, "feet");
+        QuantityLength q8 = new QuantityLength(2.0, "feet");
+        System.out.println(q7.equals(q8));
 
-        Inches i5 = new Inches(1.0);
-        System.out.println(i5.equals(null));
+        QuantityLength q9 = new QuantityLength(1.0, "inch");
+        QuantityLength q10 = new QuantityLength(2.0, "inch");
+        System.out.println(q9.equals(q10));
 
-        Feet f5 = new Feet(1.0);
-        System.out.println(f5.equals(f5));
+        QuantityLength q11 = new QuantityLength(1.0, "feet");
+        System.out.println(q11.equals(q11));
+
+        QuantityLength q12 = new QuantityLength(1.0, "feet");
+        System.out.println(q12.equals(null));
     }
 }
