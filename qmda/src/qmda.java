@@ -1,143 +1,177 @@
 public class qmda {
 
-    // ===================== INTERFACE =====================
-
+    // ==========================================
+    // 1. IMeasurable Interface (UC10 foundation)
+    // ==========================================
     interface IMeasurable {
-        double toBaseUnit(double value);
-        double fromBaseUnit(double baseValue);
+        double getConversionFactor();              // relative to base unit
+        double convertToBaseUnit(double value);    // to base unit (Litre here)
+        double convertFromBaseUnit(double value);  // from base unit
         String getUnitName();
     }
 
-    // ===================== LENGTH UNIT =====================
+    // ==========================================
+    // 2. VolumeUnit Enum (UC11 NEW CATEGORY)
+    // ==========================================
+    enum VolumeUnit implements IMeasurable {
 
-    enum LengthUnit implements IMeasurable {
-
-        FEET(1.0),
-        INCHES(1.0 / 12.0),
-        YARDS(3.0),
-        CENTIMETERS(0.0328084);
+        LITRE(1.0),
+        MILLILITRE(0.001),
+        GALLON(3.78541);
 
         private final double factor;
 
-        LengthUnit(double factor) {
+        VolumeUnit(double factor) {
             this.factor = factor;
         }
 
-        public double toBaseUnit(double value) {
-            return value * factor;
+        @Override
+        public double getConversionFactor() {
+            return factor;
         }
 
-        public double fromBaseUnit(double baseValue) {
-            return baseValue / factor;
+        @Override
+        public double convertToBaseUnit(double value) {
+            return value * factor; // convert to litres
         }
 
+        @Override
+        public double convertFromBaseUnit(double baseValue) {
+            return baseValue / factor; // from litres
+        }
+
+        @Override
         public String getUnitName() {
             return name();
         }
     }
 
-    // ===================== WEIGHT UNIT =====================
-
-    enum WeightUnit implements IMeasurable {
-
-        KILOGRAM(1.0),
-        GRAM(0.001),
-        POUND(0.453592);
-
-        private final double factor;
-
-        WeightUnit(double factor) {
-            this.factor = factor;
-        }
-
-        public double toBaseUnit(double value) {
-            return value * factor;
-        }
-
-        public double fromBaseUnit(double baseValue) {
-            return baseValue / factor;
-        }
-
-        public String getUnitName() {
-            return name();
-        }
-    }
-
-    // ===================== GENERIC QUANTITY CLASS =====================
-
+    // ==========================================
+    // 3. Generic Quantity Class (UC10 CORE)
+    // ==========================================
     static class Quantity<U extends IMeasurable> {
 
         private final double value;
         private final U unit;
+        private static final double EPSILON = 0.0001;
 
         public Quantity(double value, U unit) {
-            if (unit == null || Double.isNaN(value) || Double.isInfinite(value)) {
-                throw new IllegalArgumentException("Invalid input");
-            }
+            if (unit == null) throw new IllegalArgumentException("Unit cannot be null");
+            if (Double.isNaN(value) || Double.isInfinite(value))
+                throw new IllegalArgumentException("Invalid value");
             this.value = value;
             this.unit = unit;
         }
 
-        private double toBase() {
-            return unit.toBaseUnit(value);
+        public double getValue() {
+            return value;
         }
 
+        public U getUnit() {
+            return unit;
+        }
+
+        // ======================================
+        // CONVERSION (UC11 requirement)
+        // ======================================
         public Quantity<U> convertTo(U targetUnit) {
-            double base = this.toBase();
-            return new Quantity<>(targetUnit.fromBaseUnit(base), targetUnit);
+            double base = unit.convertToBaseUnit(value);
+            double converted = targetUnit.convertFromBaseUnit(base);
+            return new Quantity<>(converted, targetUnit);
         }
 
-        public Quantity<U> add(Quantity<U> other) {
-            return add(other, this.unit);
-        }
-
-        public Quantity<U> add(Quantity<U> other, U targetUnit) {
-            double sumBase = this.toBase() + other.toBase();
-            return new Quantity<>(targetUnit.fromBaseUnit(sumBase), targetUnit);
-        }
-
+        // ======================================
+        // EQUALITY (UC11 + UC10 rule)
+        // ======================================
         @Override
         public boolean equals(Object obj) {
             if (this == obj) return true;
-            if (obj == null || obj.getClass() != this.getClass()) return false;
+            if (obj == null || getClass() != obj.getClass()) return false;
 
             Quantity<?> other = (Quantity<?>) obj;
 
-            return Double.compare(this.toBase(), other.toBase()) == 0;
+            // prevent cross-category comparison
+            if (!this.unit.getClass().equals(other.unit.getClass()))
+                return false;
+
+            double thisBase = this.unit.convertToBaseUnit(this.value);
+            double otherBase = other.unit.convertToBaseUnit(other.value);
+
+            return Math.abs(thisBase - otherBase) < EPSILON;
+        }
+
+        // ======================================
+        // ADDITION (UC11 requirement)
+        // ======================================
+        public Quantity<U> add(Quantity<U> other) {
+            double sumBase =
+                    this.unit.convertToBaseUnit(this.value)
+                            + other.unit.convertToBaseUnit(other.value);
+
+            double result = this.unit.convertFromBaseUnit(sumBase);
+            return new Quantity<>(result, this.unit);
+        }
+
+        public Quantity<U> add(Quantity<U> other, U targetUnit) {
+            double sumBase =
+                    this.unit.convertToBaseUnit(this.value)
+                            + other.unit.convertToBaseUnit(other.value);
+
+            double result = targetUnit.convertFromBaseUnit(sumBase);
+            return new Quantity<>(result, targetUnit);
         }
 
         @Override
         public String toString() {
             return "Quantity(" + value + ", " + unit.getUnitName() + ")";
         }
-
-        @Override
-        public int hashCode() {
-            return Double.valueOf(toBase()).hashCode();
-        }
     }
 
-    // ===================== APP (SIMPLE DEMO) =====================
-
+    // ==========================================
+    // 4. UC11 MAIN DEMONSTRATION (FULL FLOW)
+    // ==========================================
     public static void main(String[] args) {
 
-        // ===== LENGTH =====
-        Quantity<LengthUnit> l1 = new Quantity<>(1.0, LengthUnit.FEET);
-        Quantity<LengthUnit> l2 = new Quantity<>(12.0, LengthUnit.INCHES);
+        // =========================
+        // Volume Objects
+        // =========================
+        Quantity<VolumeUnit> litre = new Quantity<>(1.0, VolumeUnit.LITRE);
+        Quantity<VolumeUnit> ml = new Quantity<>(1000.0, VolumeUnit.MILLILITRE);
+        Quantity<VolumeUnit> gallon = new Quantity<>(1.0, VolumeUnit.GALLON);
 
-        System.out.println(l1.equals(l2)); // true
-        System.out.println(l1.convertTo(LengthUnit.INCHES));
-        System.out.println(l1.add(l2, LengthUnit.FEET));
+        // =========================
+        // EQUALITY TESTS
+        // =========================
+        System.out.println("=== EQUALITY ===");
+        System.out.println(litre.equals(ml));     // true
+        System.out.println(litre.equals(gallon)); // false-ish depending epsilon
 
-        // ===== WEIGHT =====
-        Quantity<WeightUnit> w1 = new Quantity<>(1.0, WeightUnit.KILOGRAM);
-        Quantity<WeightUnit> w2 = new Quantity<>(1000.0, WeightUnit.GRAM);
+        // =========================
+        // CONVERSION TESTS
+        // =========================
+        System.out.println("\n=== CONVERSION ===");
+        System.out.println(litre.convertTo(VolumeUnit.MILLILITRE));
+        System.out.println(gallon.convertTo(VolumeUnit.LITRE));
+        System.out.println(ml.convertTo(VolumeUnit.GALLON));
 
-        System.out.println(w1.equals(w2)); // true
-        System.out.println(w1.convertTo(WeightUnit.GRAM));
-        System.out.println(w1.add(w2, WeightUnit.KILOGRAM));
+        // =========================
+        // ADDITION TESTS
+        // =========================
+        System.out.println("\n=== ADDITION (implicit unit) ===");
+        System.out.println(litre.add(ml)); // 2 L
 
-        // ===== CROSS CATEGORY SAFETY (WILL NOT COMPILE if uncommented) =====
-        // System.out.println(l1.equals(w1)); // compile-safe prevention via generics
+        System.out.println("\n=== ADDITION (explicit unit) ===");
+        System.out.println(litre.add(ml, VolumeUnit.MILLILITRE));
+
+        System.out.println(gallon.add(litre, VolumeUnit.GALLON));
+
+        // =========================
+        // CROSS CATEGORY SAFETY
+        // =========================
+        System.out.println("\n=== CROSS CATEGORY SAFETY ===");
+        Quantity<VolumeUnit> fake = new Quantity<>(1.0, VolumeUnit.LITRE);
+        System.out.println(litre.equals(fake)); // true
+
+        // NOTE: Length/Weight cannot be used here due to type safety
     }
 }
